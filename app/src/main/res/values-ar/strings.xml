@@ -46,6 +46,7 @@
     <string name="port_http">منفذ بروکسی HTTP</string>
     <string name="port_proxy">منفذ بروکسی SOCKS5</string>
     <string name="service_mode_proxy">البروکسی فقط</string>
+    <string name="service_mode_root">TUN بالروت</string>
     <string name="port_transproxy">منفذ ترانسبروكسى</string>
     <string name="service_mode_vpn">VPN</string>
     <string name="service_mode">وضع الخدمة</string>
