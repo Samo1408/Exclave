@@ -45,6 +45,7 @@
     <string name="service_mode">Service mode</string>
     <string name="service_mode_proxy">Proxy only</string>
     <string name="service_mode_vpn">VPN</string>
+    <string name="service_mode_root">Root TUN</string>
     <string name="port_proxy">SOCKS5 proxy port</string>
     <string name="port_http">HTTP proxy port</string>
     <string name="port_transproxy">Transparent proxy port</string>
