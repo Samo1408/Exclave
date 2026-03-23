@@ -148,6 +148,10 @@ class VpnService : BaseVpnService(),
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (DataStore.serviceMode == Key.MODE_VPN) {
             if (prepare(this) != null) {
+                // لو Root متاح نمنح الإذن تلقائياً بدون dialog
+                if (isRootAvailable()) {
+                    return super<BaseService.Interface>.onStartCommand(intent, flags, startId)
+                }
                 startActivity(
                     Intent(
                         this, VpnRequestActivity::class.java
@@ -157,6 +161,17 @@ class VpnService : BaseVpnService(),
         }
         stopRunner()
         return Service.START_NOT_STICKY
+    }
+
+    private fun isRootAvailable(): Boolean {
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+            val result = proc.inputStream.bufferedReader().readText()
+            proc.waitFor()
+            result.contains("uid=0")
+        } catch (e: Exception) {
+            false
+        }
     }
 
     override suspend fun preInit() {
