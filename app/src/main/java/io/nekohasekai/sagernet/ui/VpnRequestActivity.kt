@@ -73,6 +73,11 @@ class VpnRequestActivity : AppCompatActivity() {
             input: Void?,
         ): SynchronousResult<Boolean>? {
             if (DataStore.serviceMode == Key.MODE_VPN) {
+                // لو Root متاح نشغل مباشرة بدون VPN permission dialog
+                if (isRootAvailable()) {
+                    SagerNet.startService()
+                    return SynchronousResult(false)
+                }
                 try {
                     VpnService.prepare(context)
                 } catch (e: Exception) {
@@ -86,6 +91,17 @@ class VpnRequestActivity : AppCompatActivity() {
             }
             SagerNet.startService()
             return SynchronousResult(false)
+        }
+
+        private fun isRootAvailable(): Boolean {
+            return try {
+                val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+                val result = proc.inputStream.bufferedReader().readText()
+                proc.waitFor()
+                result.contains("uid=0")
+            } catch (e: Exception) {
+                false
+            }
         }
 
         override fun createIntent(context: Context, input: Void?) =
