@@ -28,6 +28,7 @@ import io.nekohasekai.sagernet.utils.DefaultNetworkListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import libsagernetcore.Libsagernetcore
 import libsagernetcore.TunConfig
 import libsagernetcore.Tun2ray
@@ -75,7 +76,9 @@ class RootTunService : Service(),
     }
 
     override suspend fun startProcesses() {
-        startRootTun()
+        withContext(Dispatchers.IO) {
+            startRootTun()
+        }
         super.startProcesses()
     }
 
@@ -92,10 +95,10 @@ class RootTunService : Service(),
         tun = null
         tunPfd?.close()
         tunPfd = null
-        teardownTun()
         super.killProcesses()
         instance = null
-        GlobalScope.launch(Dispatchers.Default) {
+        GlobalScope.launch(Dispatchers.IO) {
+            teardownTun()
             DefaultNetworkListener.stop(this)
         }
     }
@@ -114,7 +117,7 @@ class RootTunService : Service(),
     // Main entry
     // ────────────────────────────────────────────────
 
-    private fun startRootTun() {
+    private suspend fun startRootTun() {
         instance = this
         if (!checkRoot()) throw SecurityException("Root access required for Root TUN mode")
 
@@ -166,7 +169,7 @@ class RootTunService : Service(),
     // TUN interface setup (root only)
     // ────────────────────────────────────────────────
 
-    private fun setupTunInterface() {
+    private suspend fun setupTunInterface() {
         val script = """
             ip tuntap del dev $TUN_NAME mode tun 2>/dev/null || true
             ip tuntap add dev $TUN_NAME mode tun
@@ -193,7 +196,7 @@ class RootTunService : Service(),
      *     ثم يرسل الـ fd عبر SCM_RIGHTS
      *  3. الـ app يستقبل الـ fd من ancillaryFileDescriptors
      */
-    private fun receiveTunFd(socketPath: String): Int {
+    private suspend fun receiveTunFd(socketPath: String): Int = withContext(Dispatchers.IO) {
         // الـ server socket يستمع على abstract namespace (@ prefix)
         val abstractName = "roottun_fd"
 
@@ -222,8 +225,8 @@ class RootTunService : Service(),
         clientSock.close()
 
         suProc.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
-        return fd
-    }
+        fd
+    }  // end withContext
 
     /**
      * بناء الـ Python script اللي يشتغل بـ su ويرسل الـ fd
@@ -283,7 +286,7 @@ class RootTunService : Service(),
     // Routing (root)
     // ────────────────────────────────────────────────
 
-    private fun setupRouting() {
+    private suspend fun setupRouting() {
         val script = """
             # routing: كل traffic يمر عبر $TUN_NAME
             ip rule del fwmark 1 table 100 2>/dev/null || true
@@ -304,7 +307,7 @@ class RootTunService : Service(),
         Logs.i("RootTunService: routing configured")
     }
 
-    private fun teardownTun() {
+    private suspend fun teardownTun() {
         val script = """
             iptables -t mangle -D OUTPUT -j MARK --set-mark 1 2>/dev/null || true
             ip rule del fwmark 1 table 100 2>/dev/null || true
@@ -325,14 +328,16 @@ class RootTunService : Service(),
     // Root shell helpers
     // ────────────────────────────────────────────────
 
-    private fun checkRoot(): Boolean = try {
-        val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
-        val out = p.inputStream.bufferedReader().readText()
-        p.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
-        out.contains("uid=0")
-    } catch (e: Exception) { false }
+    private suspend fun checkRoot(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+            val out = p.inputStream.bufferedReader().readText()
+            p.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
+            out.contains("uid=0")
+        } catch (e: Exception) { false }
+    }
 
-    private fun runAsRoot(script: String): String {
+    private suspend fun runAsRoot(script: String): String = withContext(Dispatchers.IO) {
         val proc = Runtime.getRuntime().exec("su")
         val os   = DataOutputStream(proc.outputStream)
         os.writeBytes(script)
@@ -343,6 +348,6 @@ class RootTunService : Service(),
         val stderr = proc.errorStream.bufferedReader().readText()
         proc.waitFor(15, java.util.concurrent.TimeUnit.SECONDS)
         if (stderr.isNotEmpty()) Logs.w("su stderr: $stderr")
-        return stdout
+        stdout
     }
 }
