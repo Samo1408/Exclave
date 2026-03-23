@@ -40,7 +40,8 @@ class SagerConnection(private var listenForDeath: Boolean = false) : ServiceConn
         val serviceClass
             get() = when (DataStore.serviceMode) {
                 Key.MODE_PROXY -> ProxyService::class
-                Key.MODE_VPN -> VpnService::class //   Key.MODE_TRANS -> TransproxyService::class
+                Key.MODE_VPN -> VpnService::class
+                Key.MODE_ROOT -> RootTunService::class
                 else -> throw UnknownError()
             }.java
     }
