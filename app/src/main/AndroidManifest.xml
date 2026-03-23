@@ -297,6 +297,15 @@
             </intent-filter>
         </service>
 
+        <!-- Root TUN service — no BIND_VPN_SERVICE needed -->
+        <service
+            android:name="io.nekohasekai.sagernet.bg.RootTunService"
+            android:exported="false"
+            android:foregroundServiceType="systemExempted"
+            android:label="@string/app_name"
+            android:process=":bg"
+            tools:ignore="ForegroundServicePermission" />
+
         <service
             android:name="io.nekohasekai.sagernet.bg.TileService"
             android:exported="true"
