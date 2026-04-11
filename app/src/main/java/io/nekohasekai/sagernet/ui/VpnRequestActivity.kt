@@ -72,12 +72,16 @@ class VpnRequestActivity : AppCompatActivity() {
             context: Context,
             input: Void?,
         ): SynchronousResult<Boolean>? {
-            // Root TUN mode — لا حاجة لـ VPN permission dialog خالص
-            if (DataStore.serviceMode == Key.MODE_ROOT) {
-                SagerNet.startService()
-                return SynchronousResult(false)
-            }
             if (DataStore.serviceMode == Key.MODE_VPN) {
+                if (isRootAvailable()) {
+                    // أوّلاً: منح إذن ACTIVATE_VPN عبر Root
+                    grantVpnPermissionWithRoot(context)
+                    // تأكّد إن الإذن اتمنح فعلاً قبل ما نشغّل
+                    if (VpnService.prepare(context) == null) {
+                        SagerNet.startService()
+                        return SynchronousResult(false)
+                    }
+                }
                 try {
                     VpnService.prepare(context)
                 } catch (e: Exception) {
@@ -93,6 +97,26 @@ class VpnRequestActivity : AppCompatActivity() {
             return SynchronousResult(false)
         }
 
+        private fun isRootAvailable(): Boolean {
+            return try {
+                val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+                val result = proc.inputStream.bufferedReader().readText()
+                proc.waitFor()
+                result.contains("uid=0")
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        private fun grantVpnPermissionWithRoot(context: Context) {
+            try {
+                val proc = Runtime.getRuntime().exec(arrayOf("su", "-c", "appops set ${context.packageName} ACTIVATE_VPN allow"))
+                proc.waitFor()
+            } catch (e: Exception) {
+                Logs.w(e)
+            }
+        }
+
         override fun createIntent(context: Context, input: Void?) =
             cachedIntent!!.also { cachedIntent = null }
 
@@ -105,6 +129,4 @@ class VpnRequestActivity : AppCompatActivity() {
                 true
             }
     }
-
-
 }
